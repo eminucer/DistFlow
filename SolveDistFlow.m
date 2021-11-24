@@ -10,7 +10,7 @@ function [y] = SolveDistFlow(Grid,PlotGraph, MaxIter, tol)
 %   ->tol       : error tolerance (0.0001 recommended)
 % 
 % Outputs
-%   ->y         : output containing the solved line powers, voltages and phase angles.
+%   ->y         : output contaning the solved line powers, voltages and phase angles.
 
 function [x_next] = F(x_prev,rk,xk,pk,qk)
     P_prev = x_prev(1);
@@ -78,8 +78,8 @@ end
     if PlotGraph
         figure('rend','painters','pos',[500 100 1000 500])  
         p=plot(GR,'NodeLabel',nLabels,'LineW',2);
-        p.NodeFontSize = 14;
-        p.EdgeFontSize = 14;
+%         p.NodeFontSize = 14;
+%         p.EdgeFontSize = 14;
         p.Marker = 's';
         p.NodeColor = 'r';
     end
@@ -101,10 +101,6 @@ end
 
     pL = zeros(N,1);
     qL = zeros(N,1);
-
-    LinDistFlow_solution_V = Vo^2*ones(N,1) - 2*Ainv*diag(rk)*(Ainv)'*pN' - 2*Ainv*diag(xk)*(Ainv)'*qN';
-    LinDistFlow_solution_V = [Vo^2 ; LinDistFlow_solution_V];
-    LinDistFlow_solution_V = sqrt(LinDistFlow_solution_V);
 
     PrevNorm = norm(ones(N+1,1));
 
@@ -231,11 +227,13 @@ end
         PrevNorm = norm(UpdatedVoltages); 
     end
 
-    figure; hold on;
-    plot(0:N,UpdatedVoltages)
-    plot(0:N,LinDistFlow_solution_V)
+    figure; hold on; grid on;
+    plot(0:N,UpdatedVoltages,'-o','LineW',2)
+    xticks([0:N])
     xlabel('Nodes')
     ylabel('Voltage')
+    set(gca,'FontSize',13)
+    xlim([0,N]);
     
     y = cell(4,1);
     y{1} = pL;
