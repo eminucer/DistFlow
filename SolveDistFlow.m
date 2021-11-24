@@ -10,7 +10,7 @@ function [y] = SolveDistFlow(Grid,PlotGraph, MaxIter, tol)
 %   ->tol       : error tolerance (0.0001 recommended)
 % 
 % Outputs
-%   ->y         : output contaning the solved line powers, voltages and phase angles.
+%   ->y         : output containing the solved line powers, voltages and phase angles.
 
 function [x_next] = F(x_prev,rk,xk,pk,qk)
     P_prev = x_prev(1);
