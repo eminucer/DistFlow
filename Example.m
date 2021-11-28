@@ -68,6 +68,6 @@ Grid.L = abs(inv(Grid.L));
 %Grid = load('Grid Data\KekatosGrid.mat');
 %Grid = load('Grid Data\TwoNodeGrid.mat');
 %Grid = load('Grid Data\FiveNodeGrid.mat');
-Grid = load('Grid Data\FourNodeGrid.mat');
+%Grid = load('Grid Data\FourNodeGrid.mat');
 
 y = SolveDistFlow(Grid,1,10,0.0001);
