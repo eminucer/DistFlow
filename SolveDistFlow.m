@@ -1,12 +1,12 @@
 
-function [y] = SolveDistFlow(Grid,PlotGraph, MaxIter, tol)
+function [y] = SolveDistFlow(Grid, PlotGraph, MaxIter, tol)
 % This function solves the distribution power flow equations for a given
-% radial distribution network based on Baran(1989).
+% radial distribution network based on DistFlow equations introduced in the Baran&Wu paper(1989).
 %
 % Inputs
 %   ->Grid      : a structure contaning grid parameters
 %   ->PlotGraph : Binary variable to display informative figures
-%   ->MatIter   : Maximum number of iterations
+%   ->MaxIter   : Maximum number of iterations
 %   ->tol       : error tolerance (0.0001 recommended)
 % 
 % Outputs
@@ -72,14 +72,14 @@ end
         eLabels{i} = strcat('l_{',num2str(FromNode(i)-1),'-',num2str(ToNode(i)-1),'}');
     end
     for i=1:N+1
-        nLabels{i} = num2str(i-1);
+        nLabels{i} = strcat(num2str(i-1));
     end
 
     if PlotGraph
-        figure('rend','painters','pos',[500 100 1000 500])  
+        figure('Renderer', 'painters', 'Position', [250 250 900 350])  
         p=plot(GR,'NodeLabel',nLabels,'LineW',2);
-%         p.NodeFontSize = 14;
-%         p.EdgeFontSize = 14;
+%        p.NodeFontSize = 14;
+%        p.EdgeFontSize = 14;
         p.Marker = 's';
         p.NodeColor = 'r';
     end
@@ -94,22 +94,29 @@ end
     len = zeros(NumOfPaths,2);
 
     for i=1:NumOfPaths
-        len(i,:) = [length(Paths{i}) i];
+        len(i,:) = [length(Paths{i}),i];
     end
 
-    len = sort(len,'descend');
-
+    [~,idx] = sort(len,'descend');
+    
     pL = zeros(N,1);
     qL = zeros(N,1);
 
-    PrevNorm = norm(ones(N+1,1));
+    LinDistFlow_solution_V = Vo^2*ones(N,1) - 2*Ainv*diag(rk)*(Ainv)'*pN - 2*Ainv*diag(xk)*(Ainv)'*qN;
+    LinDistFlow_solution_V = [Vo^2 ; LinDistFlow_solution_V];
+    LinDistFlow_solution_V = sqrt(LinDistFlow_solution_V);
+
+    P_terminal = zeros(NumOfPaths,1);
 
     for iter = 1:MaxIter
     UpdatedVoltages = nan(N+1,1);    
     UpdatedVoltages(1) = Vo;
     
-        for i=len(:,2)'
-
+    counter = 0;
+    
+        for i= idx(:,1)' 
+            counter = counter + 1;
+            
             UpdatedNodes = Paths{i}(find(~isnan(UpdatedVoltages(Paths{i}(2:end)+1)))+1);
             if isempty(UpdatedNodes)
                 LastNode = Paths{i}(1);
@@ -147,10 +154,10 @@ end
             %We assume FirstNode's voltage is known/updated.
             pNN = zeros(NN,1);
             qNN = zeros(NN,1);
-
+            
             NumOfNodesToSolve = StartFrom:StartFrom+NN-1;
             for j=1:length(NumOfNodesToSolve)
-                ContributingNodes = AggregatedNodes{NumOfNodesToSolve(j)};
+                ContributingNodes = AggregatedNodes{NumOfNodesToSolve(j),1};
                 if isempty(ContributingNodes)
                         pNN(j) =  pN(AggregatedNodes{NumOfNodesToSolve(j),2});
                         qNN(j) =  qN(AggregatedNodes{NumOfNodesToSolve(j),2});
@@ -164,12 +171,12 @@ end
                         pNN(j) = pNN(j) + pN(AggregatedNodes{NumOfNodesToSolve(j),2});
                         qNN(j) = qNN(j) + qN(AggregatedNodes{NumOfNodesToSolve(j),2});
                     else
-                        pNN(j) = pNN(j) + pL(ContributingNodes(k)) + pN(AggregatedNodes{NumOfNodesToSolve(j),2});
-                        qNN(j) = qNN(j) + qL(ContributingNodes(k)) + qN(AggregatedNodes{NumOfNodesToSolve(j),2});
+                        pNN(j) = pNN(j) + pL(ContributingNodes(1)) + pN(AggregatedNodes{NumOfNodesToSolve(j),2});
+                        qNN(j) = qNN(j) + qL(ContributingNodes(1)) + qN(AggregatedNodes{NumOfNodesToSolve(j),2});
                     end
                 end
             end
-
+                       
             xx = cell(NN+1,1); % State variable (N+1)x1
             J = cell(NN,1);   % Jacobian matrix NxN
 
@@ -183,10 +190,9 @@ end
                          UpdatedVoltages(LastNode+1)];
             end
 
-
             % Forward sweep to find PLs and QLs
-            rkk = rk(cell2mat(AggregatedNodes(:,2)));
-            xkk = xk(cell2mat(AggregatedNodes(:,2)));
+            rkk = rk(RemainingNodes);
+            xkk = xk(RemainingNodes);
 
             for ii=1:NN
                 xx{ii+1} = (F(xx{ii},rkk(ii),xkk(ii),pNN(ii),qNN(ii)))';
@@ -195,44 +201,54 @@ end
                 UpdatedVoltages(RemainingNodes(ii)+1) = xx{ii+1}(3);
                 J{ii} = Jacobian(xx{ii},rkk(ii),xkk(ii));
             end
+            P_terminal(counter) = xx{ii+1}(1);
 
-            JJ = J{NN}; % J(N) -> 3x3 matrix
+            JJ = J{NN}(1:2,1:3); % J(N) -> 2x3 matrix
 
             for ii=NN-1:-1:1
-                JJ = JJ*J{ii};
+               JJ = JJ * J{ii};
             end
 
-            x_next = xx{1}-JJ\xx{NN+1}; 
+            %x_next = xx{1}-JJ\xx{NN+1}; 
+            x_next = xx{1}(1:3)-JJ\xx{NN+1}(1:2); 
+            
             pL(FirstNode) = x_next(1);
             qL(FirstNode) = x_next(2);
 
-        end
-
-        for i=1:N+1
-            if i<= N
-                Phase{i+1} = Phase{i}-angle(UpdatedVoltages(i)^2 - (conj(rk(i)+1j*xk(i)))*(pL(i)+1j*qL(i))); 
-            end
-            fprintf('V[%d] = %.4f /_ %.2f\n',i-1, abs(UpdatedVoltages(i)), rad2deg(Phase{i}));
-        end
-
-        error = abs(norm(UpdatedVoltages)-PrevNorm)/PrevNorm;
-        fprintf('Error: %f ', error)
+        end   
+        
+        error = norm(abs(P_terminal),1);
+        
+        fprintf('Iteration: %d\nTerminal node error: %f', iter, error)
         if error > tol
-            fprintf('> tolerance = %f -> N\n', tol);
+            fprintf(' > tolerance = %f -> N\n', tol);
         else
-            fprintf('< tolerance = %f -> Y\n', tol);
-            break;
+            fprintf('< tolerance = %f -> Y\n\nTotal Num of Iterations: %d\n', tol, iter);
+            if 1
+                fprintf('\nNode voltages and phase angles:\n');
+                for i=1:N+1
+                    if i<= N
+                        Phase{i+1} = Phase{i}-angle(UpdatedVoltages(i)^2 - (conj(rk(i)+1j*xk(i)))*(pL(i)+1j*qL(i))); 
+                    end
+                    fprintf('V[%d] = %.4f /_ %.2f\n',i-1, (abs(UpdatedVoltages(i))/Vo), rad2deg(Phase{i}));
+                end
+            end
+           break;
         end
         fprintf('\n');
-        PrevNorm = norm(UpdatedVoltages); 
+
     end
 
-    figure; hold on; grid on;
-    plot(0:N,UpdatedVoltages,'-o','LineW',2)
+    figure('Renderer', 'painters', 'Position', [250 250 900 350]) 
+    hold on; 
+    grid on;
+    plot(0:N,UpdatedVoltages/Vo,'-o','LineW',2)
+    plot(0:N,LinDistFlow_solution_V/Vo, 'LineW',2)
     xticks([0:N])
     xlabel('Nodes')
     ylabel('Voltage')
     set(gca,'FontSize',13)
+    legend('DistFlow','LinDistFlow')
     xlim([0,N]);
     
     y = cell(4,1);
@@ -240,5 +256,6 @@ end
     y{2} = qL;
     y{3} = UpdatedVoltages;
     y{4} = cell2mat(Phase);
+    y{5} = P_terminal;
 
 end
