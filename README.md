@@ -5,7 +5,7 @@ This function solves the distribution power flow equations for a given, generic,
 -The following are the resulting plots for the network graph and node-voltage profiles <br />
 -The solver function `SolveDistFlow(Grid,PlotGraph,MaxIter,tol)` takes 4 inputs <br />
 -`Grid` is a structure that contains grid-related parameters, i.e., number of nodes `(N)`, grid graph `(L)`, line impedences `(rk, xk)`, node powers `(pN, qN)` and substation voltage `(Vo)` <br />
--`PlotGraph (1,0)` enables plotting the results after execution <br/>
+-`PlotGraph (1,0)` enables plotting of the results after execution <br/>
 -`MaxIter` sets the maximum number of iterations for the Newton-Raphson method <br/>
 -`tol` is the error tolerance <br/>
 
